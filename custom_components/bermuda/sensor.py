@@ -2,28 +2,35 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from homeassistant import config_entries
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.components.sensor.const import SensorDeviceClass
-from homeassistant.components.sensor.const import SensorStateClass
-from homeassistant.const import SIGNAL_STRENGTH_DECIBELS_MILLIWATT
-from homeassistant.const import STATE_UNAVAILABLE
-from homeassistant.const import UnitOfLength
-from homeassistant.core import HomeAssistant
-from homeassistant.core import callback
+from homeassistant.components.sensor.const import SensorDeviceClass, SensorStateClass
+from homeassistant.const import (
+    SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+    STATE_UNAVAILABLE,
+    UnitOfLength,
+)
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import _LOGGER
-from .const import ADDR_TYPE_IBEACON
-from .const import ADDR_TYPE_PRIVATE_BLE_DEVICE
-from .const import DOMAIN
-from .const import SIGNAL_DEVICE_NEW
-from .coordinator import BermudaDataUpdateCoordinator
+from .const import (
+    _LOGGER,
+    ADDR_TYPE_IBEACON,
+    ADDR_TYPE_PRIVATE_BLE_DEVICE,
+    DOMAIN,
+    SIGNAL_DEVICE_NEW,
+)
 from .entity import BermudaEntity
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from homeassistant import config_entries
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.typing import StateType
+
+    from .coordinator import BermudaDataUpdateCoordinator
 
 
 async def async_setup_entry(
@@ -38,7 +45,8 @@ async def async_setup_entry(
 
     @callback
     def device_new(address: str, scanners: list[str]) -> None:
-        """Create entities for newly-found device
+        """
+        Create entities for newly-found device.
 
         Called from the data co-ordinator when it finds a new device that needs
         to have sensors created. Not called directly, but via the dispatch
@@ -53,16 +61,12 @@ async def async_setup_entry(
             entities.append(BermudaSensorRssi(coordinator, entry, address))
 
             for scanner in scanners:
-                entities.append(
-                    BermudaSensorScannerRange(coordinator, entry, address, scanner)
-                )
-                entities.append(
-                    BermudaSensorScannerRangeRaw(coordinator, entry, address, scanner)
-                )
+                entities.append(BermudaSensorScannerRange(coordinator, entry, address, scanner))
+                entities.append(BermudaSensorScannerRangeRaw(coordinator, entry, address, scanner))
             # _LOGGER.debug("Sensor received new_device signal for %s", address)
             # We set update before add to False because we are being
             # call(back(ed)) from the update, so causing it to call another would be... bad.
-            async_add_devices(entities, False)
+            async_add_devices(entities, update_before_add=False)
             created_devices.append(address)
         else:
             # We've already created this one.
@@ -85,38 +89,39 @@ class BermudaSensor(BermudaEntity, SensorEntity):
     """bermuda Sensor class."""
 
     @property
-    def unique_id(self):
-        """ "Uniquely identify this sensor so that it gets stored in the entity_registry,
-        and can be maintained / renamed etc by the user"""
+    def unique_id(self) -> str:
+        """
+        "Uniquely identify this sensor so that it gets stored in the entity_registry,
+        and can be maintained / renamed etc by the user.
+        """
         return self._device.unique_id
 
     @property
     def has_entity_name(self) -> bool:
-        """Indicate that our name() method only returns the entity's name,
-        so that HA should prepend the device name for the user."""
+        """
+        Indicate that our name() method only returns the entity's name,
+        so that HA should prepend the device name for the user.
+        """
         return True
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Return the name of the sensor."""
         return "Area"
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | None:
         """Return the state of the sensor."""
         # return self.coordinator.data.get("body")
         return self._device.area_name
 
     @property
     def entity_registry_enabled_default(self) -> bool:
-        """Declare if entity should be automatically enabled on adding"""
-        if self.name in ["Area", "Distance"]:
-            return True
-        else:
-            return False
+        """Declare if entity should be automatically enabled on adding."""
+        return self.name in ["Area", "Distance"]
 
     @property
-    def device_class(self):
+    def device_class(self) -> str:
         """Return de device class of the sensor."""
         # There isn't one for "Area Names" so we'll arbitrarily define our own.
         return "bermuda__custom_device_class"
@@ -130,10 +135,7 @@ class BermudaSensor(BermudaEntity, SensorEntity):
             ADDR_TYPE_IBEACON,
             ADDR_TYPE_PRIVATE_BLE_DEVICE,
         ]:
-            if len(self._device.beacon_sources) > 0:
-                current_mac = self._device.beacon_sources[0]
-            else:
-                current_mac = STATE_UNAVAILABLE
+            current_mac = self._device.beacon_sources[0] if len(self._device.beacon_sources) > 0 else STATE_UNAVAILABLE
 
         # Limit how many attributes we list - prefer new sensors instead
         # since oft-changing attribs cause more db writes than sensors
@@ -148,86 +150,86 @@ class BermudaSensor(BermudaEntity, SensorEntity):
 
 
 class BermudaSensorScanner(BermudaSensor):
-    """Sensor for name of nearest detected scanner"""
+    """Sensor for name of nearest detected scanner."""
 
     @property
-    def unique_id(self):
+    def unique_id(self) -> str:
         return f"{self._device.unique_id}_scanner"
 
     @property
-    def name(self):
+    def name(self) -> str:
         return "Nearest Scanner"
 
     @property
-    def native_value(self):
+    def native_value(self) -> str | None:
         return self._device.area_scanner
 
 
 class BermudaSensorRssi(BermudaSensor):
-    """Sensor for RSSI of closest scanner"""
+    """Sensor for RSSI of closest scanner."""
 
     @property
-    def unique_id(self):
-        """Return unique id for the entity"""
+    def unique_id(self) -> str:
+        """Return unique id for the entity."""
         return f"{self._device.unique_id}_rssi"
 
     @property
-    def name(self):
+    def name(self) -> str:
         return "Nearest RSSI"
 
     @property
-    def native_value(self):
-        return self._cached_ratelimit(
-            self._device.area_rssi, fast_falling=False, fast_rising=True
-        )
+    def native_value(self) -> StateType:
+        return self._cached_ratelimit(self._device.area_rssi, fast_falling=False, fast_rising=True)
 
     @property
-    def device_class(self):
+    def device_class(self) -> SensorDeviceClass:
         return SensorDeviceClass.SIGNAL_STRENGTH
 
     @property
-    def native_unit_of_measurement(self):
+    def native_unit_of_measurement(self) -> str:
         return SIGNAL_STRENGTH_DECIBELS_MILLIWATT
 
     @property
-    def state_class(self):
-        """These are graphable measurements"""
+    def state_class(self) -> SensorStateClass:
+        """These are graphable measurements."""
         return SensorStateClass.MEASUREMENT
 
 
 class BermudaSensorRange(BermudaSensor):
-    """Extra sensor for range-to-closest-area"""
+    """Extra sensor for range-to-closest-area."""
 
     @property
-    def unique_id(self):
-        """ "Uniquely identify this sensor so that it gets stored in the entity_registry,
-        and can be maintained / renamed etc by the user"""
+    def unique_id(self) -> str:
+        """
+        "Uniquely identify this sensor so that it gets stored in the entity_registry,
+        and can be maintained / renamed etc by the user.
+        """
         return f"{self._device.unique_id}_range"
 
     @property
-    def name(self):
+    def name(self) -> str:
         return "Distance"
 
     @property
-    def native_value(self):
-        """Return the native value of the sensor"""
+    def native_value(self) -> StateType:
+        """Return the native value of the sensor."""
         distance = self._device.area_distance
         if distance is not None:
             return self._cached_ratelimit(round(distance, 1))
         return None
 
     @property
-    def device_class(self):
+    def device_class(self) -> SensorDeviceClass:
         return SensorDeviceClass.DISTANCE
 
     @property
-    def native_unit_of_measurement(self):
-        """Results are in metres"""
+    def native_unit_of_measurement(self) -> UnitOfLength:
+        """Results are in metres."""
         return UnitOfLength.METERS
 
     @property
-    def state_class(self):
-        """Measurement should result in graphed results"""
+    def state_class(self) -> SensorStateClass:
+        """Measurement should result in graphed results."""
         return SensorStateClass.MEASUREMENT
 
 
@@ -240,7 +242,7 @@ class BermudaSensorScannerRange(BermudaSensorRange):
         config_entry,
         address: str,
         scanner_address: str,
-    ):
+    ) -> None:
         super().__init__(coordinator, config_entry, address)
         self.coordinator = coordinator
         self.config_entry = config_entry
@@ -248,18 +250,20 @@ class BermudaSensorScannerRange(BermudaSensorRange):
         self._scanner = coordinator.devices[scanner_address]
 
     @property
-    def unique_id(self):
+    def unique_id(self) -> str:
         return f"{self._device.unique_id}_{self._scanner.address}_range"
 
     @property
-    def name(self):
+    def name(self) -> str:
         return f"Distance to {self._scanner.name}"
 
     @property
-    def native_value(self):
-        """Expose distance to given scanner.
+    def native_value(self) -> StateType:
+        """
+        Expose distance to given scanner.
 
-        Don't break if that scanner's never heard of us!"""
+        Don't break if that scanner's never heard of us!
+        """
         devscanner = self._device.scanners.get(self._scanner.address, {})
         distance = getattr(devscanner, "rssi_distance", None)
         if distance is not None:
@@ -277,26 +281,27 @@ class BermudaSensorScannerRange(BermudaSensorRange):
                 "area_scanner_mac": self._scanner.address,
                 "area_scanner_name": self._scanner.name,
             }
-        else:
-            return None
+        return None
 
 
 class BermudaSensorScannerRangeRaw(BermudaSensorScannerRange):
-    """Provides un-filtered latest distances per-scanner"""
+    """Provides un-filtered latest distances per-scanner."""
 
     @property
-    def unique_id(self):
+    def unique_id(self) -> str:
         return f"{self._device.unique_id}_{self._scanner.address}_range_raw"
 
     @property
-    def name(self):
+    def name(self) -> str:
         return f"Unfiltered Distance to {self._scanner.name}"
 
     @property
-    def native_value(self):
-        """Expose distance to given scanner.
+    def native_value(self) -> float | None:
+        """
+        Expose distance to given scanner.
 
-        Don't break if that scanner's never heard of us!"""
+        Don't break if that scanner's never heard of us!
+        """
         devscanner = self._device.scanners.get(self._scanner.address, {})
         distance = getattr(devscanner, "rssi_distance_raw", None)
         if distance is not None:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 # from homeassistant.components.switch import SERVICE_TURN_OFF
 # from homeassistant.components.switch import SERVICE_TURN_ON
 # from homeassistant.const import ATTR_ENTITY_ID
@@ -14,6 +16,9 @@ from custom_components.bermuda.const import DOMAIN
 
 from .const import MOCK_CONFIG
 
+if TYPE_CHECKING:
+    from homeassistant.core import HomeAssistant
+
 # from unittest.mock import call
 # from unittest.mock import patch
 
@@ -21,7 +26,7 @@ from .const import MOCK_CONFIG
 # from custom_components.bermuda.const import SWITCH
 
 
-async def test_switch_services(hass):
+async def test_switch_services(hass: HomeAssistant) -> None:
     """Test switch services."""
     # Create a mock entry so we don't have to go through config flow
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")

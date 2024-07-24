@@ -13,16 +13,16 @@ pytest_plugins = "pytest_homeassistant_custom_component"
 
 
 @pytest.fixture(autouse=True)
-def mock_bluetooth(enable_bluetooth):
+def mock_bluetooth(enable_bluetooth) -> None:
     """Auto mock bluetooth."""
 
 
 # This fixture enables loading custom integrations in all tests.
 # Remove to enable selective use of this fixture
 @pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations):
+def auto_enable_custom_integrations(enable_custom_integrations) -> None:
     """Enable loading custom integrations."""
-    yield
+    return
 
 
 # This fixture is used to prevent HomeAssistant from
@@ -33,8 +33,9 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 @pytest.fixture(name="skip_notifications", autouse=True)
 def skip_notifications_fixture():
     """Skip notification calls."""
-    with patch("homeassistant.components.persistent_notification.async_create"), patch(
-        "homeassistant.components.persistent_notification.async_dismiss"
+    with (
+        patch("homeassistant.components.persistent_notification.async_create"),
+        patch("homeassistant.components.persistent_notification.async_dismiss"),
     ):
         yield
 
@@ -44,7 +45,7 @@ def skip_notifications_fixture():
 # return a value, we would add the `return_value=<VALUE_TO_RETURN>`
 # parameter to the patch call.
 @pytest.fixture(name="bypass_get_data")
-def bypass_get_data_fixture():
+def bypass_get_data_fixture() -> None:
     """Skip calls to get data from API."""
     with patch("custom_components.bermuda.BermudaDataUpdateCoordinator.async_refresh"):
         yield
@@ -54,7 +55,7 @@ def bypass_get_data_fixture():
 # an Exception. This is useful
 # for exception handling.
 @pytest.fixture(name="error_on_get_data")
-def error_get_data_fixture():
+def error_get_data_fixture() -> None:
     """Simulate error when retrieving data from API."""
     with patch(
         "custom_components.bermuda.BermudaDataUpdateCoordinator.async_refresh",
